@@ -33,6 +33,8 @@ const DEFAULT_POLL_INTERVAL_MS = 5000;
 // The lease is renewed at the start of every cycle; it only has to outlive a
 // cycle so a crashed instance's lease expires and another can take over.
 const DEFAULT_LEASE_TTL_MS = 60000;
+// Upper bound on how long stop() waits for an in-flight cycle during shutdown.
+const DEFAULT_SHUTDOWN_DEADLINE_MS = 10000;
 const EVENT_PAGE_LIMIT = 100;
 
 const sha256Hex = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
@@ -373,22 +375,32 @@ const createOracle = (options = {}) => {
  *
  * @param {object} [options]
  * @param {number} [options.pollIntervalMs] - Defaults to ORACLE_POLL_INTERVAL_MS or 5000.
- * @returns {{ stop: () => void }}
+ * @returns {{ stop: (opts?: {deadlineMs?: number}) => Promise<void> }}
  */
 const startOracleWorker = (options = {}) => {
   const oracle = createOracle(options);
   const pollIntervalMs =
     Number(options.pollIntervalMs || process.env.ORACLE_POLL_INTERVAL_MS) ||
     DEFAULT_POLL_INTERVAL_MS;
+  const shutdownDeadlineMs =
+    Number(options.shutdownDeadlineMs) || DEFAULT_SHUTDOWN_DEADLINE_MS;
 
   let stopped = false;
   let timer = null;
+  // The cycle currently in flight, so stop() can wait for it before the caller
+  // closes the database or RPC connection (#1577).
+  let inFlight = null;
 
   const loop = async () => {
     if (stopped) return;
-    await oracle.runCycle();
-    if (!stopped) {
-      timer = setTimeout(loop, pollIntervalMs);
+    inFlight = oracle.runCycle();
+    try {
+      await inFlight;
+    } finally {
+      inFlight = null;
+      if (!stopped) {
+        timer = setTimeout(loop, pollIntervalMs);
+      }
     }
   };
 
@@ -403,9 +415,33 @@ const startOracleWorker = (options = {}) => {
   timer = setTimeout(loop, 0);
 
   return {
-    stop() {
+    /**
+     * Stops scheduling new cycles and drains the one already running, so the
+     * caller can close shared dependencies without pulling them out from under
+     * an in-flight write. Bounded by `deadlineMs`: a cycle that will not finish
+     * in time is abandoned and shutdown proceeds (#1577).
+     *
+     * @param {object} [opts]
+     * @param {number} [opts.deadlineMs] - Max time to wait for the in-flight cycle.
+     * @returns {Promise<void>}
+     */
+    async stop({ deadlineMs = shutdownDeadlineMs } = {}) {
       stopped = true;
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (!inFlight) return;
+
+      const drained = inFlight.catch(() => {});
+      let deadlineTimer;
+      await Promise.race([
+        drained,
+        new Promise((resolve) => {
+          deadlineTimer = setTimeout(resolve, deadlineMs);
+        }),
+      ]);
+      clearTimeout(deadlineTimer);
     },
   };
 };
