@@ -64,11 +64,10 @@ fi
       fi
     fi
 
-    if [[ -n "$first_error" && "$first_error" != "—" ]]; then
-      first_error="$(printf '%s' "$first_error" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g')"
-    else
-      first_error="—"
-    fi
+    # Cargo/rustc colour codes and raw pipes must not break the Markdown
+    # table. sanitize_report_cell.py collapses any compiler line into one
+    # ANSI-free, pipe-safe cell (see scripts/test_sanitize_report_cell.py).
+    first_error="$(printf '%s' "$first_error" | python3 "$REPO_ROOT/scripts/sanitize_report_cell.py")"
 
     printf "| %s | %s | %s | %s |\n" "$crate" "$clippy_status" "$test_status" "$first_error"
   done

@@ -9,6 +9,42 @@ const audit = require('../services/audit.service');
 const ALLOWED_AUDIT_ACTIONS = ['wallet.deposit', 'wallet.withdraw', 'game.play'];
 
 /**
+ * Resolves the wallet a profile write is allowed to act on. The bearer token
+ * is the only trusted source of identity: the body is caller-controlled, so
+ * a body naming a different wallet is rejected rather than silently ignored
+ * (#1552). Returns null after forwarding the error to `next`.
+ */
+const ownedWalletForWrite = (req, next) => {
+  const tokenWallet = req.user?.walletAddress;
+  if (!tokenWallet) {
+    const error = new Error('A valid wallet token is required.');
+    error.statusCode = 401;
+    error.code = 'UNAUTHENTICATED';
+    next(error);
+    return null;
+  }
+
+  const bodyWallet = req.body?.walletAddress || req.body?.address;
+  if (!bodyWallet) {
+    const error = new Error('walletAddress is required.');
+    error.statusCode = 400;
+    error.code = 'INVALID_REQUEST';
+    next(error);
+    return null;
+  }
+
+  if (bodyWallet !== tokenWallet) {
+    const error = new Error('You can only write to the wallet your token proves you own.');
+    error.statusCode = 403;
+    error.code = 'FORBIDDEN';
+    next(error);
+    return null;
+  }
+
+  return tokenWallet;
+};
+
+/**
  * Shapes a DB user row into the wire format the frontend's `UserProfile`
  * type expects (`address`, camelCase telegram/timestamp fields).
  * `telegramLinked` is derived, not stored, so it can never drift from the
@@ -93,13 +129,8 @@ const getProfile = async (req, res, next) => {
 
 const createProfile = async (req, res, next) => {
   try {
-    const walletAddress = req.body.walletAddress || req.body.address;
-    if (!walletAddress) {
-      const error = new Error('walletAddress is required.');
-      error.statusCode = 400;
-      error.code = 'INVALID_REQUEST';
-      throw error;
-    }
+    const walletAddress = ownedWalletForWrite(req, next);
+    if (!walletAddress) return;
 
     logger.info(`Creating profile for wallet: ${walletAddress}`);
     let user = await User.findByWallet(walletAddress);
@@ -130,13 +161,8 @@ const createProfile = async (req, res, next) => {
  */
 const updateProfile = async (req, res, next) => {
   try {
-    const walletAddress = req.body.walletAddress || req.body.address;
-    if (!walletAddress) {
-      const error = new Error('walletAddress is required.');
-      error.statusCode = 400;
-      error.code = 'INVALID_REQUEST';
-      throw error;
-    }
+    const walletAddress = ownedWalletForWrite(req, next);
+    if (!walletAddress) return;
 
     const user = await User.findByWallet(walletAddress);
     if (!user) {
