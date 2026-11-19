@@ -17,8 +17,13 @@ still applies (PR rules, delivery checks, versions).
   25.x as a dependency and again with `features = ["testutils"]` under
   `[dev-dependencies]`) and add the crate to `members`. Don't put a
   `[profile.release]` in the crate — the workspace's profile applies.
-- Per-crate status (implemented / partial / stub): [`STATUS.md`](STATUS.md).
-  It is a heuristic; read the code before trusting a label.
+- Per-crate membership and `#[test]` attribute counts: the generated block in
+  [`STATUS.md`](STATUS.md). It is derived from this `Cargo.toml` and the crates'
+  `.rs` files; regenerate with `python3 scripts/contract_inventory.py` from the
+  repo root and commit the result. `python3 scripts/contract_inventory.py --check`
+  fails if the committed block is stale. An attribute count is not a security
+  sign-off, and the retired implemented/partial/stub labels elsewhere in that
+  file are historical only.
 
 ## Commands
 

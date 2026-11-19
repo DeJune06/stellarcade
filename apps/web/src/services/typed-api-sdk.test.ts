@@ -219,6 +219,31 @@ describe('ApiClient — auth propagation', () => {
     const calledHeaders = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]?.headers as Record<string, string>;
     expect(calledHeaders['Authorization']).toBeUndefined();
   });
+
+  // #1552: the server now rejects an update with no valid token, so the
+  // client should fail the same way before even reaching the network.
+  it('returns API_UNAUTHORIZED immediately for updateProfile when token is missing', async () => {
+    const spy = vi.fn();
+    global.fetch = spy;
+
+    const client = new ApiClient({ sessionStore: makeSessionStore(null) });
+    const result = await client.updateProfile({ address: 'GABC123' });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('API_UNAUTHORIZED');
+    }
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('sends Authorization header for updateProfile when token is present', async () => {
+    mockFetch(200, { address: 'GABC123' });
+    const client = new ApiClient({ sessionStore: makeSessionStore('my-token') });
+    await client.updateProfile({ address: 'GABC123' });
+
+    const calledHeaders = (global.fetch as any).mock.calls[0][1]?.headers as Record<string, string>;
+    expect(calledHeaders['Authorization']).toBe('Bearer my-token');
+  });
 });
 
 // ── Retry logic ───────────────────────────────────────────────────────────────

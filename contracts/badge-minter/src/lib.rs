@@ -17,8 +17,7 @@
 #![allow(unexpected_cfgs)]
 
 use soroban_sdk::{
-    contract, contracterror, contractevent, contractimpl, contracttype, vec, Address, Env,
-    String, Vec,
+    contract, contracterror, contractevent, contractimpl, Address, Env, String, Vec,
 };
 
 mod storage;
@@ -44,15 +43,15 @@ pub const PERSISTENT_BUMP_LEDGERS: u32 = 518_400;
 #[repr(u32)]
 pub enum Error {
     AlreadyInitialized = 1,
-    NotInitialized     = 2,
-    NotAuthorized      = 3,
-    BadgeNotFound      = 4,
+    NotInitialized = 2,
+    NotAuthorized = 3,
+    BadgeNotFound = 4,
     BadgeAlreadyExists = 5,
-    SupplyExhausted    = 6,
-    InvalidInput       = 7,
-    NotEligible        = 8,
-    BadgeInactive      = 9,
-    AlreadyMinted      = 10,
+    SupplyExhausted = 6,
+    InvalidInput = 7,
+    NotEligible = 8,
+    BadgeInactive = 9,
+    AlreadyMinted = 10,
 }
 
 // ---------------------------------------------------------------------------
@@ -180,8 +179,7 @@ impl BadgeMinter {
             return Err(Error::InvalidInput);
         }
 
-        let definition = get_badge_definition(&env, badge_id)
-            .ok_or(Error::BadgeNotFound)?;
+        let definition = get_badge_definition(&env, badge_id).ok_or(Error::BadgeNotFound)?;
 
         if !definition.is_active || !is_badge_active(&env, badge_id) {
             return Err(Error::BadgeInactive);
@@ -205,7 +203,7 @@ impl BadgeMinter {
         user.require_auth();
 
         // Update supply
-        let new_total = increment_total_minted(&env, badge_id, quantity);
+        increment_total_minted(&env, badge_id, quantity);
 
         // Update user's minted badges
         let mut user_badges = get_user_minted_badges(&env, &user);
@@ -239,12 +237,16 @@ impl BadgeMinter {
     // -----------------------------------------------------------------------
 
     /// Set the active status of a badge. Admin only.
-    pub fn set_badge_status(env: Env, admin: Address, badge_id: u64, is_active: bool) -> Result<(), Error> {
+    pub fn set_badge_status(
+        env: Env,
+        admin: Address,
+        badge_id: u64,
+        is_active: bool,
+    ) -> Result<(), Error> {
         require_initialized(&env)?;
         require_admin(&env, &admin)?;
 
-        let definition = get_badge_definition(&env, badge_id)
-            .ok_or(Error::BadgeNotFound)?;
+        let definition = get_badge_definition(&env, badge_id).ok_or(Error::BadgeNotFound)?;
 
         // Update definition
         let mut updated_def = definition;
@@ -271,7 +273,13 @@ impl BadgeMinter {
     ///
     /// Eligibility is per-badge and must be explicitly granted before
     /// `mint_badge` will accept the player.
-    pub fn set_eligible(env: Env, admin: Address, player: Address, badge_id: u64, eligible: bool) -> Result<(), Error> {
+    pub fn set_eligible(
+        env: Env,
+        admin: Address,
+        player: Address,
+        badge_id: u64,
+        eligible: bool,
+    ) -> Result<(), Error> {
         require_initialized(&env)?;
         require_admin(&env, &admin)?;
 
@@ -290,12 +298,12 @@ impl BadgeMinter {
     /// Returns default values for unknown badge IDs.
     pub fn get_minted_supply_snapshot(env: Env, badge_id: u64) -> MintedSupplySnapshot {
         let definition = get_badge_definition(&env, badge_id);
-        
+
         match definition {
             Some(def) => {
                 let total_minted = get_total_minted(&env, badge_id);
                 let remaining_supply = def.max_supply.saturating_sub(total_minted);
-                
+
                 MintedSupplySnapshot {
                     badge_id,
                     total_minted,
@@ -326,17 +334,21 @@ impl BadgeMinter {
     /// This provides comprehensive eligibility information including
     /// the reason for eligibility status and current mint price.
     /// Returns predictable default values for unknown badges or users.
-    pub fn get_claim_eligibility_snapshot(env: Env, user: Address, badge_id: u64) -> ClaimEligibilitySnapshot {
+    pub fn get_claim_eligibility_snapshot(
+        env: Env,
+        user: Address,
+        badge_id: u64,
+    ) -> ClaimEligibilitySnapshot {
         let definition = get_badge_definition(&env, badge_id);
-        
+
         match definition {
             Some(def) => {
                 let is_eligible = self::check_eligibility(&env, &user, badge_id);
-                let can_mint = is_eligible 
-                    && def.is_active 
+                let can_mint = is_eligible
+                    && def.is_active
                     && is_badge_active(&env, badge_id)
                     && get_total_minted(&env, badge_id) < def.max_supply;
-                
+
                 let eligibility_reason = if !def.is_active || !is_badge_active(&env, badge_id) {
                     String::from_str(&env, "Badge is inactive")
                 } else if get_total_minted(&env, badge_id) >= def.max_supply {
@@ -346,7 +358,7 @@ impl BadgeMinter {
                 } else {
                     String::from_str(&env, "Eligible to mint")
                 };
-                
+
                 ClaimEligibilitySnapshot {
                     user,
                     badge_id,
@@ -650,11 +662,14 @@ mod test {
         let user = Address::generate(&env);
         client.set_eligible(&admin, &user, &1u64, &true);
         let snapshot = client.get_claim_eligibility_snapshot(&user, &1u64);
-        
+
         assert!(snapshot.is_eligible);
         assert!(snapshot.can_mint);
         assert_eq!(snapshot.mint_price, 100i128);
-        assert_eq!(snapshot.eligibility_reason, soroban_sdk::String::from_str(&env, "Eligible to mint"));
+        assert_eq!(
+            snapshot.eligibility_reason,
+            soroban_sdk::String::from_str(&env, "Eligible to mint")
+        );
     }
 
     #[test]
@@ -664,11 +679,14 @@ mod test {
 
         let user = Address::generate(&env);
         let snapshot = client.get_claim_eligibility_snapshot(&user, &999u64);
-        
+
         assert!(!snapshot.is_eligible);
         assert!(!snapshot.can_mint);
         assert_eq!(snapshot.mint_price, 0i128);
-        assert_eq!(snapshot.eligibility_reason, soroban_sdk::String::from_str(&env, "Badge not found"));
+        assert_eq!(
+            snapshot.eligibility_reason,
+            soroban_sdk::String::from_str(&env, "Badge not found")
+        );
     }
 
     #[test]
@@ -689,7 +707,7 @@ mod test {
 
         let user = Address::generate(&env);
         client.set_eligible(&admin, &user, &1u64, &true);
-        
+
         // Mint all available badges
         client.mint_badge(&user, &1u64, &5u64);
 
@@ -700,7 +718,10 @@ mod test {
         // Check eligibility snapshot
         let snapshot = client.get_claim_eligibility_snapshot(&user, &1u64);
         assert!(!snapshot.can_mint);
-        assert_eq!(snapshot.eligibility_reason, soroban_sdk::String::from_str(&env, "Supply exhausted"));
+        assert_eq!(
+            snapshot.eligibility_reason,
+            soroban_sdk::String::from_str(&env, "Supply exhausted")
+        );
     }
 
     #[test]
@@ -723,7 +744,7 @@ mod test {
         client.set_badge_status(&admin, &1u64, &false);
 
         let user = Address::generate(&env);
-        
+
         // Try to mint - should fail
         let result = client.try_mint_badge(&user, &1u64, &1u64);
         assert!(result.is_err());
@@ -731,7 +752,10 @@ mod test {
         // Check eligibility snapshot
         let snapshot = client.get_claim_eligibility_snapshot(&user, &1u64);
         assert!(!snapshot.can_mint);
-        assert_eq!(snapshot.eligibility_reason, soroban_sdk::String::from_str(&env, "Badge is inactive"));
+        assert_eq!(
+            snapshot.eligibility_reason,
+            soroban_sdk::String::from_str(&env, "Badge is inactive")
+        );
     }
 
     #[test]
