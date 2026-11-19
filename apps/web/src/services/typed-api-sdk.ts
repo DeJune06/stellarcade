@@ -453,11 +453,11 @@ export class ApiClient {
         error: makeValidationError("Address is required."),
       };
     }
-    // The backend route never enforces auth on this endpoint — requiring a
-    // client-side token here just adds a failure mode the server doesn't
-    // actually have (a Telegram-link sync silently dropped because login
-    // hadn't completed yet, even though the update itself would've succeeded).
-    return this._request("POST", "/users/update", input, false, opts);
+    // The route now requires a valid, matching-wallet bearer token (#1552),
+    // so a call made before login completes correctly fails client-side
+    // with the same unauthorized error the server would return anyway,
+    // rather than reaching the network only to be rejected there.
+    return this._request("POST", "/users/update", input, true, opts);
   }
 
   async deposit(
