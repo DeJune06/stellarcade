@@ -4,6 +4,17 @@ const logger = require('../utils/logger');
 
 /**
  * Service for managing quest-related business logic.
+ *
+ * Quest state has three deliberately separate meanings (#1588):
+ *  - completed: progress >= target. Derived from progress, and recomputed by
+ *    web consumers from progress. Earning the objective is not a payout.
+ *  - claimable: completed && !claimed, i.e. eligible for a reward that has
+ *    not been paid yet. Web gates this behind future XP/badge minting.
+ *  - claimed (settled): the reward was actually paid or minted. Only a real
+ *    settlement flow may set it; progress writes and daily login never do.
+ *
+ * This mapping exposes `claimed` unchanged from persistence so an earned
+ * quest is never presented to consumers as an already-settled payout.
  */
 const questService = {
   /**
