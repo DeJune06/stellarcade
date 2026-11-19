@@ -104,9 +104,7 @@ impl AttendancePass {
             };
         };
 
-        let status = if !record.active {
-            PassStatus::Expired
-        } else if now >= record.expires_at {
+        let status = if !record.active || now >= record.expires_at {
             PassStatus::Expired
         } else {
             PassStatus::Active
