@@ -65,21 +65,23 @@ const QuestModel = {
    * @param {number} userId
    * @param {string} questSlug
    * @param {number} [delta=1]
+   * @param {object} [trx] - optional Knex transaction to join (#1580)
    * @returns {Promise<object|null>}
    */
-  async recordProgress(userId, questSlug, delta = 1) {
+  async recordProgress(userId, questSlug, delta = 1, trx) {
+    const database = trx || db;
     try {
-      const quest = await db('quests').where({ quest_id: questSlug }).first();
+      const quest = await database('quests').where({ quest_id: questSlug }).first();
       if (!quest) return null;
 
-      const existing = await db('user_quests')
+      const existing = await database('user_quests')
         .where({ user_id: userId, quest_id: quest.id })
         .first();
 
       if (!existing) {
         const progress = Math.min(delta, quest.target);
         const completed = progress >= quest.target;
-        const rows = await db('user_quests')
+        const rows = await database('user_quests')
           .insert({
             user_id: userId,
             quest_id: quest.id,
@@ -89,7 +91,7 @@ const QuestModel = {
             // a payout (#1588).
             claimed: false,
             streak: completed ? 1 : 0,
-            updated_at: db.fn.now(),
+            updated_at: database.fn.now(),
           })
           .returning('*');
         return rows[0];
@@ -101,13 +103,13 @@ const QuestModel = {
       // keeps it at exactly once while leaving `claimed` for the real payout
       // flow (#1588).
       const justCompleted = Number(existing.progress) < quest.target && progress >= quest.target;
-      const rows = await db('user_quests')
+      const rows = await database('user_quests')
         .where({ id: existing.id })
         .update({
           progress,
           claimed: existing.claimed,
           streak: justCompleted ? existing.streak + 1 : existing.streak,
-          updated_at: db.fn.now(),
+          updated_at: database.fn.now(),
         })
         .returning('*');
       return rows[0];

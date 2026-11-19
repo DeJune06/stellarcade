@@ -183,11 +183,13 @@ const GameModel = {
    *
    * @param {string} contractId
    * @param {string} chainGameId - u64 as a decimal string
+   * @param {object} [trx] - optional Knex transaction to join (#1580)
    * @returns {Promise<Object|null>}
    */
-  async findByChainGame(contractId, chainGameId) {
+  async findByChainGame(contractId, chainGameId, trx) {
+    const database = trx || db;
     try {
-      const game = await db('games')
+      const game = await database('games')
         .where({ contract_id: contractId, chain_game_id: chainGameId })
         .first();
       return game || null;
@@ -202,13 +204,22 @@ const GameModel = {
    * already exists, so replaying the same BetPlaced event changes nothing.
    *
    * @param {Object} gameData - Must include contract_id and chain_game_id
+   * @param {object} [trx] - optional Knex transaction to join (#1580)
    * @returns {Promise<boolean>} true if a row was inserted
    */
-  async insertChainGame(gameData) {
+  async insertChainGame(gameData, trx) {
+    const database = trx || db;
     try {
-      const existing = await this.findByChainGame(gameData.contract_id, gameData.chain_game_id);
+      const existing = await this.findByChainGame(
+        gameData.contract_id,
+        gameData.chain_game_id,
+        database
+      );
       if (existing) return false;
-      await db('games').insert(gameData).onConflict(['contract_id', 'chain_game_id']).ignore();
+      await database('games')
+        .insert(gameData)
+        .onConflict(['contract_id', 'chain_game_id'])
+        .ignore();
       return true;
     } catch (error) {
       logger.error('Error in GameModel.insertChainGame:', error);
@@ -223,15 +234,17 @@ const GameModel = {
    * @param {string} contractId
    * @param {string} chainGameId
    * @param {Object} patch - result, payout, resolve_tx_hash, resolved_at, user_id
+   * @param {object} [trx] - optional Knex transaction to join (#1580)
    * @returns {Promise<Object|null>} the resolved row, or null if no pending row existed
    */
-  async resolveChainGame(contractId, chainGameId, patch) {
+  async resolveChainGame(contractId, chainGameId, patch, trx) {
+    const database = trx || db;
     try {
-      const updated = await db('games')
+      const updated = await database('games')
         .where({ contract_id: contractId, chain_game_id: chainGameId, status: 'pending' })
         .update({ ...patch, status: 'resolved' });
       if (!updated) return null;
-      return await this.findByChainGame(contractId, chainGameId);
+      return await this.findByChainGame(contractId, chainGameId, database);
     } catch (error) {
       logger.error('Error in GameModel.resolveChainGame:', error);
       throw error;

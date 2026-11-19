@@ -60,7 +60,8 @@ const makeSoroban = (pages = []) => ({
   getEvents: jest.fn(async () => pages.shift() || { events: [], cursor: null }),
 });
 
-const makeIndexer = (soroban) => createIndexer({ db, soroban, contractId: COIN_FLIP_ID });
+const makeIndexer = (soroban, options = {}) =>
+  createIndexer({ db, soroban, contractId: COIN_FLIP_ID, ...options });
 
 const gameRow = (gameId) =>
   db('games').where({ contract_id: COIN_FLIP_ID, chain_game_id: gameId }).first();
@@ -182,6 +183,46 @@ describe('indexer worker', () => {
     expect(await gameRow('14')).toEqual(before);
     expect(await questProgress(linkedUserId, 'play-5-games')).toBe(1);
     expect(await questProgress(linkedUserId, 'win-3-games')).toBe(1);
+  });
+
+  test('a quest-credit failure rolls back the resolution and cursor, so a retry credits exactly once (#1580)', async () => {
+    const RealQuestModel = require('../../src/models/Quest.model');
+    const batch = () => [
+      betPlaced({ id: 'e1', gameId: 18, player: LINKED_PLAYER }),
+      betResolved({ id: 'e2', gameId: 18, player: LINKED_PLAYER, won: true }),
+    ];
+
+    // First attempt: the quest write fails on the resolution event.
+    const failingQuest = {
+      recordProgress: jest.fn(async () => {
+        throw new Error('quest store temporarily unavailable');
+      }),
+    };
+    await expect(
+      makeIndexer(makeSoroban([{ events: batch(), cursor: 'e2' }]), { QuestModel: failingQuest })
+        .processEvents()
+    ).rejects.toThrow('quest store temporarily unavailable');
+
+    // The failed event committed nothing: the game is still pending, no quest
+    // credit was given, and the cursor stayed at the last successful event.
+    expect((await gameRow('18')).status).toBe('pending');
+    expect(await questProgress(linkedUserId, 'play-5-games')).toBe(0);
+    expect(await db('worker_cursors').where({ name: 'indexer' }).first()).toMatchObject({
+      cursor: 'e1',
+    });
+
+    // Retry with a working quest store: exactly one credit, cursor now advanced.
+    await makeIndexer(
+      makeSoroban([{ events: batch(), cursor: 'e2' }]),
+      { QuestModel: RealQuestModel }
+    ).processEvents();
+
+    expect((await gameRow('18')).status).toBe('resolved');
+    expect(await questProgress(linkedUserId, 'play-5-games')).toBe(1);
+    expect(await questProgress(linkedUserId, 'win-3-games')).toBe(1);
+    expect(await db('worker_cursors').where({ name: 'indexer' }).first()).toMatchObject({
+      cursor: 'e2',
+    });
   });
 
   test('an event from a wallet with no user account is still indexed', async () => {

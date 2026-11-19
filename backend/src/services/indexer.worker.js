@@ -45,11 +45,11 @@ const loadCursor = async (db, name) => {
   return row ? row.cursor : null;
 };
 
-const saveCursor = async (db, name, cursor) => {
-  await db('worker_cursors')
-    .insert({ name, cursor, updated_at: db.fn.now() })
+const saveCursor = async (database, name, cursor) => {
+  await database('worker_cursors')
+    .insert({ name, cursor, updated_at: database.fn.now() })
     .onConflict('name')
-    .merge({ cursor, updated_at: db.fn.now() });
+    .merge({ cursor, updated_at: database.fn.now() });
 };
 
 /**
@@ -95,7 +95,14 @@ const createIndexer = (options = {}) => {
   const QuestModel = options.QuestModel || require('../models/Quest.model');
   const { contractId } = config;
 
-  const findUserId = async (walletAddress) => {
+  const findUserId = async (walletAddress, trx) => {
+    if (trx) {
+      // Inside #1580's per-event transaction every read must use the same
+      // connection. UserModel.findByWallet uses the module db, which would
+      // deadlock a single-connection SQLite test database.
+      const user = await trx('users').where({ wallet_address: walletAddress }).first();
+      return user ? user.id : null;
+    }
     const user = await UserModel.findByWallet(walletAddress);
     return user ? user.id : null;
   };
@@ -116,44 +123,39 @@ const createIndexer = (options = {}) => {
     ...(closedAt ? { created_at: new Date(closedAt) } : {}),
   });
 
-  const handleBetPlaced = async (event, decoded) => {
+  const handleBetPlaced = async (event, decoded, trx) => {
     await GameModel.insertChainGame(
       placedRow({
         gameId: decoded.gameId,
         player: decoded.player,
         side: decoded.data.side,
         wager: decoded.data.wager,
-        userId: await findUserId(decoded.player),
+        userId: await findUserId(decoded.player, trx),
         txHash: normalizeTxHash(event.txHash),
         ledger: event.ledger,
         closedAt: event.ledgerClosedAt,
-      })
+      }),
+      trx
     );
   };
 
   /**
    * Records quest progress for a game that just moved to resolved. Runs only
-   * on that transition, so replays never count a game twice. Best-effort: a
-   * quest failure must not stop indexing.
+   * on that transition, so replays never count a game twice. Failures must
+   * propagate: the caller rolls the whole event back so a later replay can
+   * credit the game instead of silently losing the progress (#1580).
    */
-  const recordQuestProgress = async (game) => {
+  const recordQuestProgress = async (game, trx) => {
     if (!game.user_id) return;
-    try {
-      await QuestModel.recordProgress(game.user_id, 'play-5-games', 1);
-      if (game.result === 'win') {
-        await QuestModel.recordProgress(game.user_id, 'win-3-games', 1);
-      }
-    } catch (err) {
-      logger.error('Failed to record quest progress for indexed game', {
-        gameId: game.chain_game_id,
-        error: err.message,
-      });
+    await QuestModel.recordProgress(game.user_id, 'play-5-games', 1, trx);
+    if (game.result === 'win') {
+      await QuestModel.recordProgress(game.user_id, 'win-3-games', 1, trx);
     }
   };
 
-  const handleBetResolved = async (event, decoded) => {
+  const handleBetResolved = async (event, decoded, trx) => {
     const { gameId, player, data } = decoded;
-    let existing = await GameModel.findByChainGame(contractId, gameId);
+    let existing = await GameModel.findByChainGame(contractId, gameId, trx);
 
     if (!existing) {
       // BetPlaced predates the indexer's start ledger: read the bet from the
@@ -168,13 +170,14 @@ const createIndexer = (options = {}) => {
           player,
           side: game.side,
           wager: game.wager,
-          userId: await findUserId(player),
+          userId: await findUserId(player, trx),
           txHash: null,
           ledger: null,
           closedAt: null,
-        })
+        }),
+        trx
       );
-      existing = await GameModel.findByChainGame(contractId, gameId);
+      existing = await GameModel.findByChainGame(contractId, gameId, trx);
     }
 
     const patch = {
@@ -185,24 +188,24 @@ const createIndexer = (options = {}) => {
     };
     if (!existing.user_id) {
       // The player may have created an account after placing the bet.
-      const userId = await findUserId(player);
+      const userId = await findUserId(player, trx);
       if (userId) patch.user_id = userId;
     }
 
-    const resolved = await GameModel.resolveChainGame(contractId, gameId, patch);
+    const resolved = await GameModel.resolveChainGame(contractId, gameId, patch, trx);
     if (resolved) {
-      await recordQuestProgress(resolved);
+      await recordQuestProgress(resolved, trx);
     }
   };
 
-  const handleEvent = async (event) => {
+  const handleEvent = async (event, trx) => {
     if (event.inSuccessfulContractCall === false) return;
     const decoded = decodeCoinFlipEvent(event);
     if (!decoded) return;
     if (decoded.name === BET_PLACED_TOPIC) {
-      await handleBetPlaced(event, decoded);
+      await handleBetPlaced(event, decoded, trx);
     } else {
-      await handleBetResolved(event, decoded);
+      await handleBetResolved(event, decoded, trx);
     }
   };
 
@@ -231,8 +234,13 @@ const createIndexer = (options = {}) => {
     const { events, cursor: nextCursor } = await soroban.getEvents(query);
     let handled = 0;
     for (const event of events) {
-      await handleEvent(event);
-      await saveCursor(db, CURSOR_NAME, event.id);
+      // One event is one atomic unit: its game write, quest credit and cursor
+      // advance either all commit or all roll back. A crash at any boundary
+      // replays the event and yields exactly one credit (#1580).
+      await db.transaction(async (trx) => {
+        await handleEvent(event, trx);
+        await saveCursor(trx, CURSOR_NAME, event.id);
+      });
       handled += 1;
     }
     if (nextCursor) {
