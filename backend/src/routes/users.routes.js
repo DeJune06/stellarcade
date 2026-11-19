@@ -181,6 +181,22 @@ const routeDocs = [
           },
         },
       },
+      401: {
+        description: 'Authentication failed',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/AuthErrorResponse' },
+          },
+        },
+      },
+      403: {
+        description: 'Body wallet does not match the authenticated wallet',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ErrorEnvelope' },
+          },
+        },
+      },
       500: {
         description: 'Unexpected server error',
         content: {
@@ -222,6 +238,22 @@ const routeDocs = [
           },
         },
       },
+      401: {
+        description: 'Authentication failed',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/AuthErrorResponse' },
+          },
+        },
+      },
+      403: {
+        description: 'Body wallet does not match the authenticated wallet',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ErrorEnvelope' },
+          },
+        },
+      },
       404: {
         description: 'No existing profile for that wallet address — use /create first',
         content: {
@@ -244,8 +276,8 @@ const routeDocs = [
 
 router.get('/profile', optionalAuth, getProfile);
 router.get('/audit-logs', auth, rateLimit('auth'), getAuditLogs);
-router.post('/create', optionalAuth, rateLimit('auth'), createProfile);
-router.post('/update', optionalAuth, rateLimit('auth'), updateProfile);
+router.post('/create', auth, rateLimit('auth'), createProfile);
+router.post('/update', auth, rateLimit('auth'), updateProfile);
 
 module.exports = router;
 module.exports.routeDocs = routeDocs;

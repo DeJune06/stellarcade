@@ -1879,7 +1879,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellarcade-anti-cheat-bounties"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-arena-ladder"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-arena-passes"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "stellarcade-arena-sessions"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-asset-escrow-v3"
+version = "0.3.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-attendance-pass"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-badge-minter"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
@@ -1894,6 +1936,13 @@ dependencies = [
 
 [[package]]
 name = "stellarcade-blind-auction"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-bonus-rotator"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",

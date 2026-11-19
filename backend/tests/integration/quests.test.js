@@ -151,4 +151,23 @@ describe('POST /quests/check-in', () => {
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
     expect(QuestModel.recordDailyLogin).not.toHaveBeenCalled();
   });
+
+  test('a completed quest without settlement evidence is not reported as claimed', async () => {
+    User.findByWallet.mockResolvedValue({ id: 7, wallet_address: 'GALICE' });
+    QuestModel.getProgressForUser.mockResolvedValue([
+      // progress reached target (completed) but no payout (claimed false)
+      { questId: 'play-5-games', target: 5, progress: 5, claimed: false, streak: 1 },
+    ]);
+
+    const res = await request(app).get('/quests').query({ player: 'GALICE' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      { questId: 'play-5-games', progress: 5, target: 5, claimed: false, streak: 1 },
+    ]);
+    // Completion is visible through progress, but the XP/payout flag the UI
+    // consumes stays false until a real settlement (#1588).
+    expect(res.body[0].progress).toBeGreaterThanOrEqual(res.body[0].target);
+    expect(res.body[0].claimed).toBe(false);
+  });
 });

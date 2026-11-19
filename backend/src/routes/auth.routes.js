@@ -44,6 +44,14 @@ const routeDocs = [
           },
         },
       },
+      503: {
+        description: 'Rate-limit store unavailable (auth policy fails closed)',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ErrorEnvelope' },
+          },
+        },
+      },
       500: {
         description: 'Unexpected server error',
         content: {
@@ -108,7 +116,8 @@ const routeDocs = [
         },
       },
       503: {
-        description: 'Login is not configured on this deployment (JWT_SECRET unset)',
+        description:
+          'Login is not configured on this deployment (JWT_SECRET unset), or the rate-limit store is unavailable (auth policy fails closed)',
         content: {
           'application/json': {
             schema: { $ref: '#/components/schemas/ErrorEnvelope' },
