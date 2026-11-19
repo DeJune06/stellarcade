@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "access-control",
+    "arena-ladder",
     "arena-passes",
     "arena-sessions",
     "bounty-escrow",
@@ -125,7 +126,6 @@ exclude = [
     # too. Fix and re-add individually; don't bulk re-add.
     "achievements",
     "anti-cheat-bounties",
-    "arena-ladder",
     "asset-escrow-v3",
     "attendance-pass",
     "badge-minter",
