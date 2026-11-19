@@ -29,12 +29,12 @@ Generated from `contracts/Cargo.toml` and `#[test]` attributes in each crate's
 result whenever membership or test attributes change;
 `python3 scripts/contract_inventory.py --check` fails when this block is stale.
 
-- Workspace members: **110**
-- Effectively excluded crates: **44** (a crate listed in both
+- Workspace members: **113**
+- Effectively excluded crates: **41** (a crate listed in both
   `members` and `exclude` is a member, not an exclusion)
 - Crate directories containing a `Cargo.toml`: **154**
 
-**Excluded crates** (44): `higher-lower`, `challenge-ladder`, `merch-redemption`, `profile-perks`, `achievements`, `anti-cheat-bounties`, `arena-ladder`, `arena-passes`, `comprehensive-test-suite`, `contract-interaction-library`, `contract-upgrade-timelock`, `creator-drops`, `creator-vaults`, `cross-chain-bridge`, `daily-challenges`, `daily-reward-emission`, `escrow-ledger`, `escrow-vault`, `fanout-distributor`, `governance-token`, `guild-progress`, `ladder-checkpoints`, `ladder-seasons`, `loot-crate`, `map-voting`, `mission-ledger`, `prize-router-v2`, `quest-ledger-v2`, `queue-rewards`, `raffle-engine`, `rank-rewards`, `referral-quests`, `reserve-auction`, `reward-bridges`, `reward-unlocker`, `round-vouchers`, `season-rewards-vault`, `squad-match`, `squad-rewards`, `squad-roster`, `trivia-game`, `upgrade-mechanism`, `wallet-claims-v2`, `wallet-reserves`.
+**Excluded crates** (41): `higher-lower`, `challenge-ladder`, `merch-redemption`, `profile-perks`, `achievements`, `comprehensive-test-suite`, `contract-interaction-library`, `contract-upgrade-timelock`, `creator-drops`, `creator-vaults`, `cross-chain-bridge`, `daily-challenges`, `daily-reward-emission`, `escrow-ledger`, `escrow-vault`, `fanout-distributor`, `governance-token`, `guild-progress`, `ladder-checkpoints`, `ladder-seasons`, `loot-crate`, `map-voting`, `mission-ledger`, `prize-router-v2`, `quest-ledger-v2`, `queue-rewards`, `raffle-engine`, `rank-rewards`, `referral-quests`, `reserve-auction`, `reward-bridges`, `reward-unlocker`, `round-vouchers`, `season-rewards-vault`, `squad-match`, `squad-rewards`, `squad-roster`, `trivia-game`, `upgrade-mechanism`, `wallet-claims-v2`, `wallet-reserves`.
 
 #### Test attributes by crate
 
@@ -45,9 +45,9 @@ result whenever membership or test attributes change;
 | `achievements` | excluded | 7 |
 | `affiliate-ledger` | member | 6 |
 | `ai-generated-game` | member | 5 |
-| `anti-cheat-bounties` | excluded | 17 |
-| `arena-ladder` | excluded | 11 |
-| `arena-passes` | excluded | 4 |
+| `anti-cheat-bounties` | member | 19 |
+| `arena-ladder` | member | 13 |
+| `arena-passes` | member | 7 |
 | `arena-sessions` | member | 10 |
 | `asset-escrow-v3` | member | 15 |
 | `attendance-pass` | member | 12 |

@@ -3,6 +3,9 @@ resolver = "2"
 
 members = [
     "access-control",
+    "anti-cheat-bounties",
+    "arena-ladder",
+    "arena-passes",
     "arena-sessions",
     "bounty-escrow",
     "campaign-claims",
@@ -127,9 +130,6 @@ exclude = [
     # explicitly in `members` above — they've been removed from `members`
     # too. Fix and re-add individually; don't bulk re-add.
     "achievements",
-    "anti-cheat-bounties",
-    "arena-ladder",
-    "arena-passes",
     "comprehensive-test-suite",
     "contract-interaction-library",
     "contract-upgrade-timelock",
