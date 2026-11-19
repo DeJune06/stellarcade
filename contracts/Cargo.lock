@@ -1879,6 +1879,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellarcade-anti-cheat-bounties"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "stellarcade-arena-ladder"
 version = "0.1.0"
 dependencies = [
