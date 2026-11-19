@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "access-control",
+    "arena-passes",
     "arena-sessions",
     "bounty-escrow",
     "campaign-claims",
@@ -125,7 +126,6 @@ exclude = [
     "achievements",
     "anti-cheat-bounties",
     "arena-ladder",
-    "arena-passes",
     "asset-escrow-v3",
     "attendance-pass",
     "badge-minter",
