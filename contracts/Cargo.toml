@@ -159,8 +159,6 @@ exclude = [
     "reward-unlocker",
     "round-vouchers",
     "season-rewards-vault",
-    "session-nonce-manager",
-    "speed-trivia",
     "squad-match",
     "squad-rewards",
     "squad-roster",
