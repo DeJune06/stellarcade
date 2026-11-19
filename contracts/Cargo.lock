@@ -1886,6 +1886,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellarcade-asset-escrow-v3"
+version = "0.3.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-attendance-pass"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-badge-minter"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "stellarcade-balance-management"
 version = "0.1.0"
 dependencies = [
@@ -1894,6 +1915,13 @@ dependencies = [
 
 [[package]]
 name = "stellarcade-blind-auction"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "stellarcade-bonus-rotator"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
