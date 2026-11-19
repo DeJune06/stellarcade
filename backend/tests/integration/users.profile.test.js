@@ -84,7 +84,7 @@ describe('GET /users/profile', () => {
     expect(res.body.error.code).toBe('PROFILE_NOT_FOUND');
   });
 
-  test("returns the profile shaped for the frontend's UserProfile type, address field included", async () => {
+  test('returns the profile shaped for the frontend\'s UserProfile type, address field included', async () => {
     User.findByWallet.mockResolvedValue(DB_USER);
 
     const res = await request(app).get('/users/profile').query({ address: 'GALICE' });
