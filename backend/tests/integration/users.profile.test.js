@@ -23,8 +23,10 @@ jest.mock('../../src/config/redis', () => {
 
 const router = require('../../src/routes/users.routes');
 const User = require('../../src/models/User.model');
+const Quest = require('../../src/models/Quest.model');
 
 jest.mock('../../src/models/User.model');
+jest.mock('../../src/models/Quest.model');
 
 const app = express();
 app.use(express.json());
@@ -74,11 +76,20 @@ describe('GET /users/profile', () => {
     expect(res.body).toEqual({
       address: 'GALICE',
       username: 'alice',
-      telegramLinked: false,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
     expect(User.findByWallet).toHaveBeenCalledWith('GALICE');
+    expect(Quest.recordDailyLogin).not.toHaveBeenCalled();
+  });
+
+  test('does not record a daily login when an anonymous caller reads a profile', async () => {
+    User.findByWallet.mockResolvedValue(DB_USER);
+
+    const res = await request(app).get('/users/profile').query({ address: 'GALICE' });
+
+    expect(res.status).toBe(200);
+    expect(Quest.recordDailyLogin).not.toHaveBeenCalled();
   });
 });
 
@@ -215,11 +226,11 @@ describe('POST /users/update', () => {
     expect(res.body).toEqual(
       expect.objectContaining({
         address: 'GALICE',
-        telegramLinked: true,
-        telegramUserId: '944872850',
-        telegramHandle: '@user_944872850',
       })
     );
+    expect(res.body.telegramLinked).toBeUndefined();
+    expect(res.body.telegramUserId).toBeUndefined();
+    expect(res.body.telegramHandle).toBeUndefined();
     expect(User.updateByWallet).toHaveBeenCalledWith('GALICE', {
       telegram_user_id: '944872850',
       telegram_handle: '@user_944872850',

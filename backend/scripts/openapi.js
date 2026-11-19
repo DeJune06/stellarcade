@@ -95,9 +95,9 @@ const components = {
       properties: {
         address: { type: 'string' },
         username: { type: 'string' },
-        telegramHandle: { type: 'string' },
-        telegramUserId: { type: 'string' },
-        telegramLinked: { type: 'boolean' },
+        telegramHandle: { type: 'string', description: 'Owner-only linked-account detail.' },
+        telegramUserId: { type: 'string', description: 'Owner-only linked-account detail.' },
+        telegramLinked: { type: 'boolean', description: 'Owner-only linked-account detail.' },
         createdAt: { type: 'string', format: 'date-time' },
         updatedAt: { type: 'string', format: 'date-time' },
       },

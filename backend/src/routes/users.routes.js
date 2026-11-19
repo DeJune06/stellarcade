@@ -6,6 +6,7 @@ const {
   getAuditLogs,
 } = require('../controllers/users.controller');
 const auth = require('../middleware/auth.middleware');
+const { optionalAuth } = require('../middleware/auth.middleware');
 const { rateLimit } = require('../middleware/rate-limit.middleware');
 
 const router = express.Router();
@@ -16,6 +17,8 @@ const routeDocs = [
     path: '/profile',
     operationId: 'getUserProfile',
     summary: 'Fetch a profile by wallet address',
+    description:
+      'Public reads use an allowlist that excludes Telegram identifiers. An authenticated owner additionally receives linked-account detail.',
     tags: ['Users'],
     parameters: [
       {
@@ -65,7 +68,9 @@ const routeDocs = [
     method: 'get',
     path: '/audit-logs',
     operationId: 'listUserAuditLogs',
-    summary: 'List audit log entries',
+    summary: 'List the authenticated actor\'s audit log entries',
+    description:
+      'Results are scoped to the authenticated actor. Global reads require an explicit admin role policy.',
     tags: ['Users'],
     parameters: [
       {
@@ -237,10 +242,10 @@ const routeDocs = [
   },
 ];
 
-router.get('/profile', getProfile);
+router.get('/profile', optionalAuth, getProfile);
 router.get('/audit-logs', auth, rateLimit('auth'), getAuditLogs);
-router.post('/create', rateLimit('auth'), createProfile);
-router.post('/update', rateLimit('auth'), updateProfile);
+router.post('/create', optionalAuth, rateLimit('auth'), createProfile);
+router.post('/update', optionalAuth, rateLimit('auth'), updateProfile);
 
 module.exports = router;
 module.exports.routeDocs = routeDocs;

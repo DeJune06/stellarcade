@@ -37,7 +37,7 @@ const routeDocs = [
         },
       },
       400: {
-        description: 'Missing address',
+        description: 'Missing or malformed address',
         content: {
           'application/json': {
             schema: { $ref: '#/components/schemas/ErrorEnvelope' },

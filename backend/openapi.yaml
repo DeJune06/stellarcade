@@ -68,7 +68,7 @@
                     },
                   '400':
                     {
-                      'description': 'Missing address',
+                      'description': 'Missing or malformed address',
                       'content':
                         {
                           'application/json':
@@ -422,6 +422,7 @@
                         },
                     },
                 },
+              'description': 'Public reads use an allowlist that excludes Telegram identifiers. An authenticated owner additionally receives linked-account detail.',
               'parameters':
                 [
                   {
@@ -439,7 +440,7 @@
           'get':
             {
               'operationId': 'listUserAuditLogs',
-              'summary': 'List audit log entries',
+              'summary': "List the authenticated actor's audit log entries",
               'tags': ['Users'],
               'responses':
                 {
@@ -495,6 +496,7 @@
                         },
                     },
                 },
+              'description': 'Results are scoped to the authenticated actor. Global reads require an explicit admin role policy.',
               'parameters':
                 [
                   {
@@ -993,6 +995,47 @@
                 ],
             },
         },
+      '/api/quests/check-in':
+        {
+          'post':
+            {
+              'operationId': 'checkInDailyQuest',
+              'summary': 'Record a daily check-in for the authenticated owner',
+              'tags': ['Quests'],
+              'responses':
+                {
+                  '200': { 'description': 'Daily check-in recorded for the authenticated owner' },
+                  '401':
+                    {
+                      'description': 'Authentication failed',
+                      'content':
+                        {
+                          'application/json':
+                            { 'schema': { '$ref': '#/components/schemas/ErrorEnvelope' } },
+                        },
+                    },
+                  '404':
+                    {
+                      'description': 'Authenticated user was not found',
+                      'content':
+                        {
+                          'application/json':
+                            { 'schema': { '$ref': '#/components/schemas/ErrorEnvelope' } },
+                        },
+                    },
+                  '500':
+                    {
+                      'description': 'Unexpected server error',
+                      'content':
+                        {
+                          'application/json':
+                            { 'schema': { '$ref': '#/components/schemas/ErrorEnvelope' } },
+                        },
+                    },
+                },
+              'security': [{ 'bearerAuth': [] }],
+            },
+        },
       '/api/tournaments':
         {
           'get':
@@ -1173,9 +1216,12 @@
                 {
                   'address': { 'type': 'string' },
                   'username': { 'type': 'string' },
-                  'telegramHandle': { 'type': 'string' },
-                  'telegramUserId': { 'type': 'string' },
-                  'telegramLinked': { 'type': 'boolean' },
+                  'telegramHandle':
+                    { 'type': 'string', 'description': 'Owner-only linked-account detail.' },
+                  'telegramUserId':
+                    { 'type': 'string', 'description': 'Owner-only linked-account detail.' },
+                  'telegramLinked':
+                    { 'type': 'boolean', 'description': 'Owner-only linked-account detail.' },
                   'createdAt': { 'type': 'string', 'format': 'date-time' },
                   'updatedAt': { 'type': 'string', 'format': 'date-time' },
                 },
