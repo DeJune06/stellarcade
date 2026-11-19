@@ -259,11 +259,11 @@ describe('POST /users/update', () => {
     expect(res.body).toEqual(
       expect.objectContaining({
         address: 'GALICE',
+        telegramLinked: true,
+        telegramUserId: '944872850',
+        telegramHandle: '@user_944872850',
       })
     );
-    expect(res.body.telegramLinked).toBeUndefined();
-    expect(res.body.telegramUserId).toBeUndefined();
-    expect(res.body.telegramHandle).toBeUndefined();
     expect(User.updateByWallet).toHaveBeenCalledWith('GALICE', {
       telegram_user_id: '944872850',
       telegram_handle: '@user_944872850',
