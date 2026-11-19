@@ -20,6 +20,8 @@ const { createGameRegistry } = require('../config/games');
 
 const CURSOR_NAME = 'oracle';
 const RANDOM_REQUESTED_TOPIC = 'random_requested';
+// Name of the row in worker_leases that elects a single oracle instance.
+const LEASE_NAME = 'oracle';
 
 // random-generator Error discriminants (contracts/random-generator/src/lib.rs).
 const RNG_ERROR_ALREADY_FULFILLED = 7;
@@ -28,6 +30,9 @@ const COIN_FLIP_ERROR_GAME_ALREADY_RESOLVED = 8;
 
 const DEFAULT_MIN_QUEUE = 20;
 const DEFAULT_POLL_INTERVAL_MS = 5000;
+// The lease is renewed at the start of every cycle; it only has to outlive a
+// cycle so a crashed instance's lease expires and another can take over.
+const DEFAULT_LEASE_TTL_MS = 60000;
 const EVENT_PAGE_LIMIT = 100;
 
 const sha256Hex = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
@@ -100,6 +105,7 @@ const resolveConfig = (options = {}) => {
 
   const minQueue = Number(options.minQueue ?? env.ORACLE_MIN_QUEUE ?? DEFAULT_MIN_QUEUE);
   const startLedger = options.startLedger ?? env.ORACLE_START_LEDGER;
+  const leaseTtlMs = Number(options.leaseTtlMs ?? env.ORACLE_LEASE_TTL_MS ?? DEFAULT_LEASE_TTL_MS);
 
   return {
     keypair: StellarSdk.Keypair.fromSecret(secret),
@@ -110,6 +116,11 @@ const resolveConfig = (options = {}) => {
       options.gameRegistry || createGameRegistry({ coinFlipContractId, diceRollContractId }),
     minQueue: Number.isInteger(minQueue) && minQueue > 0 ? minQueue : DEFAULT_MIN_QUEUE,
     startLedger: startLedger ? Number(startLedger) : null,
+    // A process-unique owner id so a stale lease is always distinguishable
+    // from the live holder (#1578).
+    leaseOwner: options.leaseOwner || `${process.pid}:${crypto.randomUUID()}`,
+    leaseTtlMs:
+      Number.isInteger(leaseTtlMs) && leaseTtlMs > 0 ? leaseTtlMs : DEFAULT_LEASE_TTL_MS,
   };
 };
 
@@ -122,8 +133,47 @@ const createOracle = (options = {}) => {
   const config = resolveConfig(options);
   const db = options.db || require('../config/database');
   const soroban = options.soroban || require('./soroban.service');
-  const { keypair, rngContractId, gameRegistry, minQueue } = config;
+  const { keypair, rngContractId, gameRegistry, minQueue, leaseOwner, leaseTtlMs } = config;
   const oracleAddress = () => new StellarSdk.Address(keypair.publicKey()).toScVal();
+
+  /**
+   * Acquires or renews this process's lease on the oracle job. Returns true
+   * only for the one process allowed to run the cycle:
+   *
+   *  - The UPDATE matches a free (expired) lease or one this process already
+   *    owns, so a live lease held by another process is never stolen.
+   *  - When no row exists yet, the INSERT races on the primary key and exactly
+   *    one process wins; the losers are ignored.
+   *  - The final read confirms which owner won, so a process that lost the
+   *    race never proceeds.
+   *
+   * @returns {Promise<boolean>} true when this process owns the lease
+   */
+  const acquireLease = async () => {
+    const now = Date.now();
+    const expiresAt = now + leaseTtlMs;
+
+    const renewed = await db('worker_leases')
+      .where({ name: LEASE_NAME })
+      .andWhere(function () {
+        this.where('expires_at', '<=', now).orWhere('owner', leaseOwner);
+      })
+      .update({ owner: leaseOwner, expires_at: expiresAt, updated_at: db.fn.now() });
+    if (renewed > 0) return true;
+
+    await db('worker_leases')
+      .insert({
+        name: LEASE_NAME,
+        owner: leaseOwner,
+        expires_at: expiresAt,
+        updated_at: db.fn.now(),
+      })
+      .onConflict('name')
+      .ignore();
+
+    const row = await db('worker_leases').where({ name: LEASE_NAME }).first();
+    return Boolean(row && row.owner === leaseOwner && Number(row.expires_at) > now);
+  };
 
   /**
    * Commits a new batch of seeds when the on-chain queue drops below
@@ -281,7 +331,26 @@ const createOracle = (options = {}) => {
     return handled;
   };
 
+  /**
+   * Runs one full cycle, but only while this process holds the lease. Every
+   * other instance skips, so two workers sharing a database never top up the
+   * queue or bind/reveal a seed at the same time (#1578).
+   *
+   * @returns {Promise<boolean>} true when the cycle ran (this process owns the lease)
+   */
   const runCycle = async () => {
+    let owned;
+    try {
+      owned = await acquireLease();
+    } catch (err) {
+      logger.error('Oracle lease acquisition failed', { error: err.message, code: err.code });
+      return false;
+    }
+    if (!owned) {
+      logger.debug('Oracle lease held by another instance; skipping cycle', { leaseOwner });
+      return false;
+    }
+
     try {
       await topUpQueue();
     } catch (err) {
@@ -292,9 +361,10 @@ const createOracle = (options = {}) => {
     } catch (err) {
       logger.error('Oracle request processing failed', { error: err.message, code: err.code });
     }
+    return true;
   };
 
-  return { topUpQueue, processRequests, handleRandomRequested, runCycle, config };
+  return { topUpQueue, processRequests, handleRandomRequested, acquireLease, runCycle, config };
 };
 
 /**
@@ -327,6 +397,7 @@ const startOracleWorker = (options = {}) => {
     rngContractId: oracle.config.rngContractId,
     games: Object.values(oracle.config.gameRegistry).map((game) => game.name),
     minQueue: oracle.config.minQueue,
+    leaseOwner: oracle.config.leaseOwner,
     pollIntervalMs,
   });
   timer = setTimeout(loop, 0);
