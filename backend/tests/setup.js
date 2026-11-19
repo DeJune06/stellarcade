@@ -25,6 +25,15 @@ const knex = require('knex')({
 const _databaseConfig = require('../src/config/database');
 require.cache[require.resolve('../src/config/database')].exports = knex;
 
+// Redis is owned by src/config/redis.js and is not opened during tests. Close
+// it explicitly anyway so a test that opts into a connection cannot leak a
+// socket or reconnection timer and keep the Jest worker alive (#1564).
+const { disconnectRedis } = require('../src/config/redis');
+
+afterAll(async () => {
+  await disconnectRedis();
+});
+
 module.exports = async () => {
   // Run migrations for test database
   try {
