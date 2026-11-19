@@ -15,7 +15,7 @@ const postChallenge = async (req, res, next) => {
       throw error;
     }
 
-    const challenge = authService.createChallenge(address);
+    const challenge = await authService.createChallenge(address);
     res.status(200).json({ challenge });
   } catch (error) {
     next(error);
@@ -37,7 +37,7 @@ const postLogin = async (req, res, next) => {
       throw error;
     }
 
-    authService.verifySignature(address, signature);
+    await authService.verifySignature(address, signature);
 
     let user = await User.findByWallet(address);
     if (!user) {

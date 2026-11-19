@@ -91,6 +91,8 @@ describe("GET /users/profile", () => {
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-08-01T00:00:00.000Z",
         ageConfirmedAt: "2026-01-01T00:00:00.000Z",
+        telegramUserId: "944872850",
+        telegramHandle: "@already_taken_tg",
       },
     });
   });
@@ -139,6 +141,28 @@ describe("GET /users/profile", () => {
       }),
     );
     expect(res.status).toBe(200);
+  });
+
+  it("excludes Telegram identifiers from an anonymous lookup", async () => {
+    const res = await get(`http://localhost/users/profile?address=${EXISTING_ADDRESS}`);
+    const body = await res.json();
+
+    expect(body.telegramUserId).toBeUndefined();
+    expect(body.telegramHandle).toBeUndefined();
+    expect(body.telegramLinked).toBeUndefined();
+  });
+
+  it("includes linked-account detail only for the owner wallet header", async () => {
+    const res = await GET(
+      new Request(`http://localhost/users/profile?address=${EXISTING_ADDRESS}`, {
+        headers: { "x-wallet-address": EXISTING_ADDRESS },
+      }),
+    );
+    const body = await res.json();
+
+    expect(body.telegramLinked).toBe(true);
+    expect(body.telegramUserId).toBe("944872850");
+    expect(body.telegramHandle).toBe("@already_taken_tg");
   });
 });
 

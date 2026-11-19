@@ -35,6 +35,19 @@ const User = {
   },
 
   /**
+   * Find a user by internal id.
+   * @param {number|string} id
+   */
+  async findById(id) {
+    try {
+      return await db('users').where({ id }).first();
+    } catch (error) {
+      logger.error('Error in User.findById:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Update fields on an existing user, found by wallet address.
    * @param {string} address
    * @param {object} patch
