@@ -201,7 +201,11 @@ const GameModel = {
 
   /**
    * Inserts an indexed on-chain game unless (contract_id, chain_game_id)
-   * already exists, so replaying the same BetPlaced event changes nothing.
+   * already exists, so replaying the same placement event changes nothing.
+   *
+   * The pair is the identity of an indexed game: game ids are only unique
+   * within a contract, so a coin-flip and a dice-roll round that share an id
+   * are still two distinct rows and share the same history and leaderboard.
    *
    * @param {Object} gameData - Must include contract_id and chain_game_id
    * @param {object} [trx] - optional Knex transaction to join (#1580)
